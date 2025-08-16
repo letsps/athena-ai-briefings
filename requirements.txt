@@ -47,3 +47,9 @@ urllib3==2.5.0
 wheel==0.45.1
 yagmail==0.15.293
 tenacity==8.2.3
+
+# --- Testing Framework ---
+pytest==8.2.2
+
+# --- Database Migrations ---
+alembic==1.13.1
