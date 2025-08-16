@@ -1,60 +1,68 @@
-# logger_config.py
+# logger_config.py (Version 1.2 - Refined Comments Final Edition)
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import sys
+import os
 
 # ==============================================================================
-# 全局日志配置模块 (Global Logging Configuration)
+# "雅典娜"项目全局日志配置中心
+#
+# 通过在项目启动时最先导入此模块，确保所有后续模块共享同一个、
+# 经过完整配置的logger实例。
 # ==============================================================================
 
 def setup_logger():
     """
-    配置并返回一个全局的logger。
-    这个logger会将日志同时输出到控制台和文件中。
+    配置并返回一个全局的根logger实例。
+    该函数会自动检查并创建日志目录，并设置日志同时输出到控制台和文件。
     """
-    # 1. 获取根logger
-    # 我们配置根logger，这样项目中所有通过 logging.getLogger(__name__) 获取的子logger都会继承这个配置
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)  # 设置最低日志级别
+    LOG_DIR = "logs"
+    LOG_FILE = os.path.join(LOG_DIR, "athena.log")
 
-    # 避免重复添加handler，如果已经有handler了，就直接返回
+    # 核心健壮性设计：确保日志目录存在。
+    # 这是为了让项目在被克隆到一个新环境后，首次运行时能自动创建所需目录。
+    if not os.path.exists(LOG_DIR):
+        print(f"INFO: 日志目录 '{LOG_DIR}' 不存在，正在创建...")
+        try:
+            os.makedirs(LOG_DIR)
+        except OSError as e:
+            print(f"FATAL: 无法创建日志目录 '{LOG_DIR}'. 错误原因: {e}")
+            sys.exit(1)
+            
+    # 获取根logger，以便所有子模块的logger都能继承此配置。
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # 防止因重复导入而多次添加handler，导致日志重复输出。
     if logger.hasHandlers():
         return logger
 
-    # 2. 创建一个格式化器 (Formatter)
-    # 定义日志的输出格式
+    # 定义统一的日志格式。
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    # 3. 创建并配置控制台处理器 (StreamHandler)
-    # 用于将日志输出到屏幕
+    # --- 配置控制台输出 ---
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
 
-    # 4. 创建并配置文件处理器 (TimedRotatingFileHandler)
-    # 用于将日志写入文件，并按时间自动轮换
-    # 'logs/athena.log': 日志文件路径。请确保'logs'文件夹存在。
-    # when='midnight': 每天午夜进行日志轮换
-    # interval=1: 每天轮换一次
-    # backupCount=30: 保留最近30天的日志文件
-    # encoding='utf-8': 使用UTF-8编码，支持中文
+    # --- 配置文件输出，并实现按日轮换 ---
+    # TimedRotatingFileHandler能够自动管理日志文件，防止单个文件无限增大。
     file_handler = TimedRotatingFileHandler(
-        filename='logs/athena.log',
-        when='midnight',
-        interval=1,
-        backupCount=30,
+        filename=LOG_FILE,
+        when='midnight',    # 每天午夜进行日志分割
+        backupCount=30,     # 最多保留30天的日志备份
         encoding='utf-8'
     )
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-
-    logging.info("日志系统初始化成功，将同时输出到控制台和 'logs/athena.log' 文件。")
+    
+    logger.info(f"日志系统初始化成功，输出至控制台和 '{LOG_FILE}'。")
 
     return logger
 
-# 在模块加载时就执行配置，并提供一个全局可用的logger实例
+# 在模块导入时立即执行配置，生成全局唯一的logger实例。
 logger = setup_logger()
